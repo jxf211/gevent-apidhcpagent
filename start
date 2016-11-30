@@ -1,0 +1,34 @@
+#!/bin/bash
+
+if [ -d /var/log/dhcpagent ]; then
+    echo "1:log_dir: /var/log/dchpagent"
+else
+   mkdir -p /var/log/dhcpagent
+   echo "2:log_dir: /var/log/dchpagent"
+fi
+
+if [ -d /etc/dhcpagent ]; then
+    echo "1:config_dir: /etc/dhcpagent"
+else
+    mkdir -p /etc/dhcpagent
+    cp ./etc /etc/dhcpagent -r
+    echo "2:config_dir: /etc/dhcpagent"
+fi
+
+if [ -d /var/dhcpagent ]; then
+    echo "1:pid_dir: /var/dhcpagent"
+else
+    mkdir -p /var/dhcpagent
+    echo "2:pid_dir: /var/dhcpagent"
+fi
+
+
+if [ ! -f /usr/bin/dhcp_release ]; then
+    cp ./dhcp_release  /usr/bin/dhcp_release
+fi
+
+./nspdhcpagent.py  --config-file  /etc/dhcpagent/etc/dhcp_agent.conf \
+--config-file /etc/dhcpagent/etc/dhcp_agent.ini \
+--log-file /var/log/dhcpagent/nspdhcpagent.log 
+#-m
+
