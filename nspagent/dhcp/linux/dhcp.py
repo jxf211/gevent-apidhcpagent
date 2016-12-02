@@ -1,18 +1,5 @@
-## Copyright 2012 OpenStack Foundation
-# All Rights Reserved.
-#
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
-
+#!/usr/bin/env python
+# encoding: utf-8
 import abc
 import collections
 import os
@@ -22,10 +9,10 @@ import time
 
 import netaddr
 from oslo_config import cfg
-from oslo_log import log as logging
+
 from oslo_utils import importutils
 import six
-from nspagent.dhcpcommon import ovs_lib
+#from common import ovs_lib
 import external_process
 import ip_lib
 import iptables_manager
@@ -35,9 +22,7 @@ from common import exceptions
 from common import ipv6_utils
 from common import utils as commonutils
 from common import uuidutils
-import copy
-
-LOG = logging.getLogger(__name__)
+from logger import log as LOG
 
 UDP = 'udp'
 TCP = 'tcp'
@@ -272,7 +257,6 @@ class DhcpLocalProcess(DhcpBase):
     def spawn_process(self):
         pass
 
-
 class Dnsmasq(DhcpLocalProcess):
     # The ports that need to be opened when security policies are active
     # on the Neutron port used for DHCP.  These are provided as a convenience
@@ -293,7 +277,7 @@ class Dnsmasq(DhcpLocalProcess):
     def existing_dhcp_networks(cls, conf):
         """Return a list of existing networks ids that we have configs for."""
         confs_dir = cls.get_confs_dir(conf)
-	LOG.debug("confs_dir:%s", confs_dir)
+        LOG.debug("confs_dir:%s", confs_dir)
         try:
             return [
                 c for c in os.listdir(confs_dir)
@@ -902,7 +886,6 @@ class Dnsmasq(DhcpLocalProcess):
         isolated_subnets = cls.get_isolated_subnets(network)
         return any(isolated_subnets[subnet.id] for subnet in network.subnets)
 
-
 class DeviceManager(object):
 
     def __init__(self, conf, plugin):
@@ -1054,15 +1037,6 @@ class DeviceManager(object):
                              namespace=network.namespace)
             self.fill_dhcp_udp_checksums(namespace=network.namespace)
 
-        tag = network.get("vlantag", None)
-        if tag:
-            if self.conf.ovs_use_veth:
-                self.set_tag(interface_name.replace("ns-", "tap"), tag)
-            else:
-                self.set_tag(interface_name, tag)
-        else:
-            LOG.debug("No vlantag exists for network %s", network.id)
-
         ip_cidrs = []
         for fixed_ip in port.fixed_ips:
             LOG.debug("fixed_ip.subnet:%s", fixed_ip.subnet)
@@ -1107,6 +1081,7 @@ class DeviceManager(object):
         iptables_mgr.ipv4['mangle'].add_rule('POSTROUTING', ipv4_rule)
         iptables_mgr.apply()
 
-    def set_tag(self, interface_name, tag):
-        ovs = ovs_lib.BaseOVS()
-        ovs.set_db_attribute('Port', interface_name, 'tag', tag)
+    #def set_tag(self, interface_name, tag):
+    #    ovs = ovs_lib.BaseOVS()
+    #    ovs.set_db_attribute('Port', interface_name, 'tag', tag)
+

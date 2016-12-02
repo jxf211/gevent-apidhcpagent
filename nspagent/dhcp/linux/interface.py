@@ -1,45 +1,14 @@
-# Copyright 2012 OpenStack Foundation
-# All Rights Reserved.
-#
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
-
+#!/usr/bin/env python
+# encoding: utf-8
 import abc
-
 import netaddr
+from logger import log as LOG
 from oslo_config import cfg
-from oslo_log import log as logging
-from oslo_utils import importutils
 import six
-
-from nspagent.dhcpcommon import ovs_lib
+from common import ovs_lib
 from nspagent.dhcp.linux import ip_lib
-from nspagent.dhcp.linux import utils
 from common import constants as n_const
 from common import exceptions
-
-
-LOG = logging.getLogger(__name__)
-
-OPTS = [
-    cfg.StrOpt('ovs_integration_bridge',
-               default='nspbr1',
-               help=('Name of Open vSwitch bridge to use')),
-    cfg.BoolOpt('ovs_use_veth',
-                default=False,
-                help=('Uses veth for an interface or not')),
-    cfg.IntOpt('network_device_mtu',
-               help=('MTU setting for device.')),
-]
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -162,6 +131,7 @@ class LinuxInterfaceDriver(object):
     def unplug(self, device_name, bridge=None, namespace=None, prefix=None):
         """Unplug the interface."""
 
+
 class OVSInterfaceDriver(LinuxInterfaceDriver):
     """Driver for creating an internal interface on an OVS bridge."""
 
@@ -232,7 +202,7 @@ class OVSInterfaceDriver(LinuxInterfaceDriver):
             if self.conf.ovs_use_veth:
                 root_dev.link.set_up()
         else:
-	    
+
             LOG.info(("Device %s already exists"), device_name)
 
     def unplug(self, device_name, bridge=None, namespace=None, prefix=None):
@@ -250,46 +220,6 @@ class OVSInterfaceDriver(LinuxInterfaceDriver):
                 device = ip_lib.IPDevice(device_name, namespace=namespace)
                 device.link.delete()
                 LOG.debug("Unplugged interface '%s'", device_name)
-        except RuntimeError:
-            LOG.error(("Failed unplugging interface '%s'"),
-                      device_name)
-
-
-class BridgeInterfaceDriver(LinuxInterfaceDriver):
-    """Driver for creating bridge interfaces."""
-
-    DEV_NAME_PREFIX = 'ns-'
-
-    def plug(self, network_id, port_id, device_name, mac_address,
-             bridge=None, namespace=None, prefix=None):
-        """Plugin the interface."""
-        if not ip_lib.device_exists(device_name, namespace=namespace):
-
-            ip = ip_lib.IPWrapper()
-
-            # Enable agent to define the prefix
-            tap_name = device_name.replace(prefix or self.DEV_NAME_PREFIX,
-                                        n_const.TAP_DEVICE_PREFIX)
-            # Create ns_veth in a namespace if one is configured.
-            root_veth, ns_veth = ip.add_veth(tap_name, device_name,
-                                             namespace2=namespace)
-            root_veth.disable_ipv6()
-            ns_veth.link.set_address(mac_address)
-            if self.conf.network_device_mtu:
-                root_veth.link.set_mtu(self.conf.network_device_mtu)
-                ns_veth.link.set_mtu(self.conf.network_device_mtu)
-            root_veth.link.set_up()
-            ns_veth.link.set_up()
-
-        else:
-            LOG.info(("Device %s already exists"), device_name)
-
-    def unplug(self, device_name, bridge=None, namespace=None, prefix=None):
-        """Unplug the interface."""
-        device = ip_lib.IPDevice(device_name, namespace=namespace)
-        try:
-            device.link.delete()
-            LOG.debug("Unplugged interface '%s'", device_name)
         except RuntimeError:
             LOG.error(("Failed unplugging interface '%s'"),
                       device_name)

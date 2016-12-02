@@ -28,7 +28,7 @@ if [ ! -f /usr/bin/dhcp_release ]; then
 fi
 
 ./nspdhcpagent.py  --config-file  /etc/dhcpagent/etc/dhcp_agent.conf \
---config-file /etc/dhcpagent/etc/dhcp_agent.ini \
---log-file /var/log/dhcpagent/nspdhcpagent.log 
+--config-file /etc/dhcpagent/etc/dhcp_agent.ini 
+#--log-file /var/log/dhcpagent/nspdhcpagent.log 
 #-m
 

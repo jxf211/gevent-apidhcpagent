@@ -1,2 +1,0 @@
-# apidhcpagent
-api dhcp agent

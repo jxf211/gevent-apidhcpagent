@@ -415,8 +415,9 @@ from six import moves
 
 from oslo_config import iniparser
 from oslo_config import types
+from logger import log as LOG
 
-LOG = logging.getLogger(__name__)
+#LOG = logging.getLogger(__name__)
 
 
 class Error(Exception):

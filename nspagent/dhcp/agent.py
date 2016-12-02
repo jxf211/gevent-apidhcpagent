@@ -1,53 +1,28 @@
-# -*- coding: UTF-8 -*-
-# Copyright 2012 OpenStack Foundation
-# All Rights Reserved.
-#
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
+#!/usr/bin/env python
+# encoding: utf-8
 
-import collections
 import os
-import gevent
 from gevent.pool import Pool
 import json
 from oslo_config import cfg
-from oslo_log import log as logging
 from oslo_utils import importutils
 from linux import dhcp
 from linux import external_process
 from linux import utils as linux_utils
-from common import constants
 from common import exceptions
 from common import utils
 import traceback
 from webob import exc
+from logger import log as LOG
 
-LOG = logging.getLogger(__name__)
 
 class DhcpAgent(object):
-    """DHCP agent service manager.
-
-    Note that the public methods of this class are exposed as the server side
-    of an rpc interface.  The neutron server uses
-    neutron.api.rpc.agentnotifiers.dhcp_rpc_agent_api.DhcpAgentNotifyApi as the
-    client side to execute the methods here.  For more information about
-    changing rpc interfaces, see doc/source/devref/rpc_api.rst.
-    """
+    """DHCP agent service manager."""
 
     def __init__(self, host=None):
         if not host:
             host = cfg.CONF.host
         self.host = host
-        self.needs_resync_reasons = collections.defaultdict(list)
         self.conf = cfg.CONF
         self.pool = Pool(cfg.CONF.num_sync_threads)
         self.cache = NetworkCache()
@@ -99,6 +74,7 @@ class DhcpAgent(object):
         except exceptions.Conflict:
             # No need to resync here, the agent will receive the event related
             # to a status update for the network
+            LOG.error(traceback.format_exc())
             LOG.warning(('Unable to %(action)s dhcp for %(net_id)s: there '
                             'is a conflict with its current state; please '
                             'check that the network and/or its subnet(s) '
@@ -127,7 +103,6 @@ class DhcpAgent(object):
         if network:
             self.configure_dhcp_for_network(network)
 
-    @utils.exception_logger()
     def safe_configure_dhcp_for_network(self, network):
         try:
             self.configure_dhcp_for_network(network)
@@ -457,4 +432,6 @@ class NetworkCache(object):
         return {'networks': num_nets,
                 'subnets': num_subnets,
                 'ports': num_ports}
+
+
 

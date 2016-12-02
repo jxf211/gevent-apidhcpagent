@@ -1,7 +1,7 @@
 # -*- coding:utf-8 -*-
 
 import routes
-from oslo_log import log as logging
+from logger import log
 import routes.middleware
 import webob.dec
 import webob.exc
@@ -12,8 +12,6 @@ from nspagent.dhcp.agent import DhcpAgent
 import exception
 import serializers
 from const import HTTP_INTERNAL_SERVER_ERROR
-
-log = logging.getLogger(__name__)
 
 def render_response(body, status):
     """
@@ -264,17 +262,17 @@ class API(Router):
                         'action':'network_delete_end',
                         'method':'DELETE'
                     },
-			
-                    
-		    {
+
+
+		            {
                         'name':'subnet_create_end',
                         'url':'/dhcp_subnet/',
                         'action':'subnet_create_end',
                         'method':'POST'
                     },
 
- 
-		    {
+
+		            {
                         'name':'subnet_update_end',
                         'url':'/dhcp_subnet/',
                         'action':'subnet_update_end',
@@ -294,14 +292,14 @@ class API(Router):
                         'action':'port_update_end',
                         'method':'POST'
                     },
-		
+
                     {
                         'name':'port_update_end',
                         'url':'/dhcp_port/',
                         'action':'port_update_end',
                         'method':'PUT'
                     },
-					
+
 
                     {
                         'name':'port_delete_end',
@@ -309,7 +307,6 @@ class API(Router):
                         'action':'port_delete_end',
                         'method':'DELETE'
                     },
-
 
                 ]
 

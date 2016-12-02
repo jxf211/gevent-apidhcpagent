@@ -1,107 +1,7 @@
-# Copyright 2012 New Dream Network, LLC (DreamHost)
-#
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
-
-import atexit
-import fcntl
-import grp
-import logging as std_logging
-from logging import handlers
+#!/usr/bin/env python
+# encoding: utf-8
 import os
-import pwd
-import signal
-import sys
-
-from oslo_log import log as logging
-
-from common import exceptions
-
-LOG = logging.getLogger(__name__)
-
-
-def setuid(user_id_or_name):
-    try:
-        new_uid = int(user_id_or_name)
-    except (TypeError, ValueError):
-        new_uid = pwd.getpwnam(user_id_or_name).pw_uid
-    if new_uid != 0:
-        try:
-            os.setuid(new_uid)
-        except OSError:
-            msg = ('Failed to set uid %s') % new_uid
-            LOG.critical(msg)
-            raise exceptions.FailToDropPrivilegesExit(msg)
-
-
-def setgid(group_id_or_name):
-    try:
-        new_gid = int(group_id_or_name)
-    except (TypeError, ValueError):
-        new_gid = grp.getgrnam(group_id_or_name).gr_gid
-    if new_gid != 0:
-        try:
-            os.setgid(new_gid)
-        except OSError:
-            msg = ('Failed to set gid %s') % new_gid
-            LOG.critical(msg)
-            raise exceptions.FailToDropPrivilegesExit(msg)
-
-
-def unwatch_log():
-    """Replace WatchedFileHandler handlers by FileHandler ones.
-
-    Neutron logging uses WatchedFileHandler handlers but they do not
-    support privileges drop, this method replaces them by FileHandler
-    handlers supporting privileges drop.
-    """
-    log_root = logging.getLogger(None).logger
-    to_replace = [h for h in log_root.handlers
-                  if isinstance(h, handlers.WatchedFileHandler)]
-    for handler in to_replace:
-        # NOTE(cbrandily): we use default delay(=False) to ensure the log file
-        # is opened before privileges drop.
-        new_handler = std_logging.FileHandler(handler.baseFilename,
-                                              mode=handler.mode,
-                                              encoding=handler.encoding)
-        log_root.removeHandler(handler)
-        log_root.addHandler(new_handler)
-
-
-def drop_privileges(user=None, group=None):
-    """Drop privileges to user/group privileges."""
-    if user is None and group is None:
-        return
-
-    if os.geteuid() != 0:
-        msg = ('Root permissions are required to drop privileges.')
-        LOG.critical(msg)
-        raise exceptions.FailToDropPrivilegesExit(msg)
-
-    if group is not None:
-        try:
-            os.setgroups([])
-        except OSError:
-            msg = ('Failed to remove supplemental groups')
-            LOG.critical(msg)
-            raise exceptions.FailToDropPrivilegesExit(msg)
-        setgid(group)
-
-    if user is not None:
-        setuid(user)
-
-    LOG.info(("Process runs with uid/gid: %(uid)s/%(gid)s"),
-             {'uid': os.getuid(), 'gid': os.getgid()})
-
+import fcntl
 
 class Pidfile(object):
     def __init__(self, pidfile, procname, uuid=None):
@@ -148,7 +48,6 @@ class Pidfile(object):
                                                   self.uuid in exec_out)
         except IOError:
             return False
-
 
 class Daemon(object):
     """A generic daemon class.

@@ -1,39 +1,11 @@
-# Copyright 2012 OpenStack Foundation
-# All Rights Reserved.
-#
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
-
+#!/usr/bin/env python
+# encoding: utf-8
 import netaddr
 import os
 from oslo_config import cfg
-from oslo_log import log as logging
-import re
-
-from nspagent.dhcpcommon import utils
 from common import exceptions
-
-LOG = logging.getLogger(__name__)
-
-OPTS = [
-    cfg.BoolOpt('ip_lib_force_root',
-                default=False,
-                help=('Force ip_lib calls to use the root helper')),
-]
-
-
-LOOPBACK_DEVNAME = 'lo'
-
-SYS_NET_PATH = '/sys/class/net'
+from logger import log as LOG
+import utils
 
 
 class SubProcessBase(object):
@@ -194,54 +166,6 @@ class IPWrapper(SubProcessBase):
         return [l.split()[0] for l in output.splitlines()]
 
 
-class IPDevice(SubProcessBase):
-    def __init__(self, name, namespace=None):
-        super(IPDevice, self).__init__(namespace=namespace)
-        self.name = name
-        self.link = IpLinkCommand(self)
-        self.addr = IpAddrCommand(self)
-        self.route = IpRouteCommand(self)
-        self.neigh = IpNeighCommand(self)
-
-    def __eq__(self, other):
-        return (other is not None and self.name == other.name
-                and self.namespace == other.namespace)
-
-    def __str__(self):
-        return self.name
-
-    def _sysctl(self, cmd):
-        """execute() doesn't return the exit status of the command it runs,
-        it returns stdout and stderr. Setting check_exit_code=True will cause
-        it to raise a RuntimeError if the exit status of the command is
-        non-zero, which in sysctl's case is an error. So we're normalizing
-        that into zero (success) and one (failure) here to mimic what
-        "echo $?" in a shell would be.
-
-        This is all because sysctl is too verbose and prints the value you
-        just set on success, unlike most other utilities that print nothing.
-
-        execute() will have dumped a message to the logs with the actual
-        output on failure, so it's not lost, and we don't need to print it
-        here.
-        """
-        cmd = ['sysctl', '-w'] + cmd
-        ip_wrapper = IPWrapper(self.namespace)
-        try:
-            ip_wrapper.netns.execute(cmd, run_as_root=True,
-                                     check_exit_code=True)
-        except RuntimeError:
-            LOG.exception(("Failed running %s"), cmd)
-            return 1
-
-        return 0
-
-    def disable_ipv6(self):
-        sysctl_name = re.sub(r'\.', '/', self.name)
-        cmd = 'net.ipv6.conf.%s.disable_ipv6=1' % sysctl_name
-        return self._sysctl([cmd])
-
-
 class IpCommandBase(object):
     COMMAND = ''
 
@@ -256,41 +180,6 @@ class IpCommandBase(object):
                                      self.COMMAND,
                                      args,
                                      use_root_namespace=use_root_namespace)
-
-
-class IPRule(SubProcessBase):
-    def __init__(self, namespace=None):
-        super(IPRule, self).__init__(namespace=namespace)
-        self.rule = IpRuleCommand(self)
-
-
-class IpRuleCommand(IpCommandBase):
-    COMMAND = 'rule'
-
-    def _exists(self, ip, ip_version, table, rule_pr):
-        # Typical rule from 'ip rule show':
-        # 4030201:  from 1.2.3.4/24 lookup 10203040
-
-        rule_pr = str(rule_pr) + ":"
-        for line in self._as_root([ip_version], ['show']).splitlines():
-            parts = line.split()
-            if parts and (parts[0] == rule_pr and
-                          parts[2] == str(ip) and
-                          parts[-1] == str(table)):
-                return True
-
-        return False
-
-    def add(self, ip, table, rule_pr):
-        ip_version = get_ip_version(ip)
-        if not self._exists(ip, ip_version, table, rule_pr):
-            args = ['add', 'from', ip, 'table', table, 'priority', rule_pr]
-            self._as_root([ip_version], tuple(args))
-
-    def delete(self, ip, table, rule_pr):
-        ip_version = get_ip_version(ip)
-        args = ['del', 'table', table, 'priority', rule_pr]
-        self._as_root([ip_version], tuple(args))
 
 
 class IpDeviceCommandBase(IpCommandBase):
@@ -420,7 +309,6 @@ class IpAddrCommand(IpDeviceCommandBase):
                                scope=scope,
                                dynamic=('dynamic' == parts[-1])))
         return retval
-
 
 class IpRouteCommand(IpDeviceCommandBase):
     COMMAND = 'route'
@@ -626,7 +514,6 @@ class IpNetnsCommand(IpCommandBase):
                 return True
         return False
 
-
 def vlan_in_use(segmentation_id, namespace=None):
     """Return True if VLAN ID is in use by an interface, else False."""
     ip_wrapper = IPWrapper(namespace=namespace)
@@ -692,6 +579,54 @@ def get_routing_table(namespace=None):
                        'nexthop': data.get('via'),
                        'device': data.get('dev')})
     return routes
+
+
+class IPDevice(SubProcessBase):
+    def __init__(self, name, namespace=None):
+        super(IPDevice, self).__init__(namespace=namespace)
+        self.name = name
+        self.link = IpLinkCommand(self)
+        self.addr = IpAddrCommand(self)
+        self.route = IpRouteCommand(self)
+        self.neigh = IpNeighCommand(self)
+
+    def __eq__(self, other):
+        return (other is not None and self.name == other.name
+                and self.namespace == other.namespace)
+
+    def __str__(self):
+        return self.name
+
+    def _sysctl(self, cmd):
+        """execute() doesn't return the exit status of the command it runs,
+        it returns stdout and stderr. Setting check_exit_code=True will cause
+        it to raise a RuntimeError if the exit status of the command is
+        non-zero, which in sysctl's case is an error. So we're normalizing
+        that into zero (success) and one (failure) here to mimic what
+        "echo $?" in a shell would be.
+
+        This is all because sysctl is too verbose and prints the value you
+        just set on success, unlike most other utilities that print nothing.
+
+        execute() will have dumped a message to the logs with the actual
+        output on failure, so it's not lost, and we don't need to print it
+        here.
+        """
+        cmd = ['sysctl', '-w'] + cmd
+        ip_wrapper = IPWrapper(self.namespace)
+        try:
+            ip_wrapper.netns.execute(cmd, run_as_root=True,
+                                     check_exit_code=True)
+        except RuntimeError:
+            LOG.exception(("Failed running %s"), cmd)
+            return 1
+
+        return 0
+
+    def disable_ipv6(self):
+        sysctl_name = re.sub(r'\.', '/', self.name)
+        cmd = 'net.ipv6.conf.%s.disable_ipv6=1' % sysctl_name
+        return self._sysctl([cmd])
 
 
 def ensure_device_is_ready(device_name, namespace=None):
@@ -760,3 +695,4 @@ def get_ip_version(ip_or_cidr):
 
 def get_ipv6_lladdr(mac_addr):
     return '%s/64' % netaddr.EUI(mac_addr).ipv6_link_local()
+
