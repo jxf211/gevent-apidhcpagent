@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # encoding: utf-8
 from gevent.wsgi import WSGIServer
+from gevent import monkey
+monkey.patch_all()
 import argparse
 import os
 import signal
@@ -58,8 +60,8 @@ class DeamonMain(daemon.Daemon):
         pass
 
 if __name__== '__main__':
-    #local_ctrl_ip = get_ip_address("nspbr0")
-    main = DeamonMain('192.168.49.22', 20010, '/var/dhcpagent/pid')
+    local_ctrl_ip = get_ip_address("nspbr0")
+    main = DeamonMain(local_ctrl_ip, 20010, '/var/dhcpagent/pid')
     if cfg.CONF.daemon:
         main.start()
     else:

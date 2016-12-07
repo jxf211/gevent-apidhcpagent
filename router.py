@@ -35,6 +35,7 @@ class DefaultMethodController(object):
     def reject(self, req, allowed_methods, *args, **kwargs):
         raise webob.exc.HTTPMethodNotAllowed(headers=[('Allow', allowed_methods)])
 
+
 def is_json_content_type(request):
     if request.method == 'GET':
         try:
@@ -53,6 +54,7 @@ def is_json_content_type(request):
             and request.body.startswith(b'{')):
         return True
     return False
+
 
 class JSONRequestDeserializer(object):
     def has_body(self, request):
@@ -75,6 +77,7 @@ class JSONRequestDeserializer(object):
         else:
             return {}
 
+
 class Request(webob.Request):
     """Add some API-specific logic to the base webob.Request."""
     def best_match_content_type(self):
@@ -94,6 +97,7 @@ class Request(webob.Request):
             raise exception.InvalidContentType(content_type=content_type)
         else:
             return content_type
+
 
 class Resource(object):
     def __init__(self, controller, deserializer, serializer=None):
@@ -178,6 +182,7 @@ class Resource(object):
 
         return args
 
+
 class Router(object):
     def __init__(self, mapper):
         self.map = mapper
@@ -199,6 +204,7 @@ class Router(object):
 
         app = match['controller']
         return app
+
 
 class API(Router):
     def __init__ (self):
@@ -263,16 +269,14 @@ class API(Router):
                         'method':'DELETE'
                     },
 
-
-		            {
+		    {
                         'name':'subnet_create_end',
                         'url':'/dhcp_subnet/',
                         'action':'subnet_create_end',
                         'method':'POST'
                     },
 
-
-		            {
+		    {
                         'name':'subnet_update_end',
                         'url':'/dhcp_subnet/',
                         'action':'subnet_update_end',
@@ -299,7 +303,6 @@ class API(Router):
                         'action':'port_update_end',
                         'method':'PUT'
                     },
-
 
                     {
                         'name':'port_delete_end',
