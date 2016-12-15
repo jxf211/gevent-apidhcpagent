@@ -36,7 +36,7 @@ class DeamonMain(daemon.Daemon):
         super(DeamonMain, self).__init__(pid_file)
 
     def sigterm_handler(signal, frame):
-            sys.exit(0)
+        sys.exit(0)
 
     def run(self):
         signal.signal(signal.SIGTERM, self.sigterm_handler)

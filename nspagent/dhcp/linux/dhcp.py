@@ -24,6 +24,7 @@ from common import utils as commonutils
 from common import uuidutils
 from logger import log as LOG
 
+
 UDP = 'udp'
 TCP = 'tcp'
 DNS_PORT = 53

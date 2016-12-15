@@ -263,14 +263,12 @@ class API(Router):
                         'method':'DELETE'
                     },
 
-
 		            {
                         'name':'subnet_create_end',
                         'url':'/dhcp_subnet/',
                         'action':'subnet_create_end',
                         'method':'POST'
                     },
-
 
 		            {
                         'name':'subnet_update_end',
@@ -299,7 +297,6 @@ class API(Router):
                         'action':'port_update_end',
                         'method':'PUT'
                     },
-
 
                     {
                         'name':'port_delete_end',
