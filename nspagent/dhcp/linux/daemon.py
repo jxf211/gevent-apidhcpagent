@@ -2,6 +2,8 @@
 # encoding: utf-8
 import os
 import fcntl
+from logger import log as LOG
+import sys
 
 class Pidfile(object):
     def __init__(self, pidfile, procname, uuid=None):
