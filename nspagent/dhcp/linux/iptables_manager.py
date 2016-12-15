@@ -1,5 +1,118 @@
-#!/usr/bin/env python
-# encoding: utf-8
+# Copyright 2012 Locaweb.
+# All Rights Reserved.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+#
+# based on
+# https://github.com/openstack/nova/blob/master/nova/network/linux_net.py
+
+"""Implements iptables rules using linux utilities."""
+
+import collections
+import contextlib
+import os
+import re
+import sys
+
+from oslo_utils import lockutils
+from oslo_config import cfg
+from oslo_utils import excutils
+from logger import log as LOG
+from common import config
+import iptables_comments as ic
+import utils as linux_utils
+from common import exceptions as n_exc
+from common import utils
+
+
+
+# NOTE(vish): Iptables supports chain names of up to 28 characters,  and we
+#             add up to 12 characters to binary_name which is used as a prefix,
+#             so we limit it to 16 characters.
+#             (max_chain_name_length - len('-POSTROUTING') == 16)
+def get_binary_name():
+    """Grab the name of the binary we're running in."""
+    return os.path.basename(sys.argv[0])[:16].replace(' ', '_')
+
+binary_name = get_binary_name()
+
+# A length of a chain name must be less than or equal to 11 characters.
+# <max length of iptables chain name> - (<binary_name> + '-') = 28-(16+1) = 11
+MAX_CHAIN_LEN_WRAP = 11
+MAX_CHAIN_LEN_NOWRAP = 28
+
+# Number of iptables rules to print before and after a rule that causes a
+# a failure during iptables-restore
+IPTABLES_ERROR_LINES_OF_CONTEXT = 5
+
+
+def comment_rule(rule, comment):
+    if not cfg.CONF.AGENT.comment_iptables_rules or not comment:
+        return rule
+    # iptables-save outputs the comment before the jump so we need to match
+    # that order so _find_last_entry works
+    comment = '-m comment --comment "%s"' % comment
+    if rule.startswith('-j'):
+        # this is a jump only rule so we just put the comment first
+        return '%s %s' % (comment, rule)
+    try:
+        jpos = rule.index(' -j ')
+        return ' '.join((rule[:jpos], comment, rule[jpos + 1:]))
+    except ValueError:
+        return '%s %s' % (rule, comment)
+
+
+def get_chain_name(chain_name, wrap=True):
+    if wrap:
+        return chain_name[:MAX_CHAIN_LEN_WRAP]
+    else:
+        return chain_name[:MAX_CHAIN_LEN_NOWRAP]
+
+
+class IptablesRule(object):
+    """An iptables rule.
+
+    You shouldn't need to use this class directly, it's only used by
+    IptablesManager.
+
+    """
+
+    def __init__(self, chain, rule, wrap=True, top=False,
+                 binary_name=binary_name, tag=None, comment=None):
+        self.chain = get_chain_name(chain, wrap)
+        self.rule = rule
+        self.wrap = wrap
+        self.top = top
+        self.wrap_name = binary_name[:16]
+        self.tag = tag
+        self.comment = comment
+
+    def __eq__(self, other):
+        return ((self.chain == other.chain) and
+                (self.rule == other.rule) and
+                (self.top == other.top) and
+                (self.wrap == other.wrap))
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __str__(self):
+        if self.wrap:
+            chain = '%s-%s' % (self.wrap_name, self.chain)
+        else:
+            chain = self.chain
+        return comment_rule('-A %s %s' % (chain, self.rule), self.comment)
+
 
 class IptablesTable(object):
     """An iptables table."""
@@ -151,6 +264,7 @@ class IptablesTable(object):
         rules = [rule for rule in self.rules if rule.tag == tag]
         for rule in rules:
             self.rules.remove(rule)
+
 
 class IptablesManager(object):
     """Wrapper for iptables.
@@ -636,4 +750,3 @@ def make_filter_map(filter_list):
                 filter_map[alt_key].append(data)
     # return a regular dict so readers don't accidentally add entries
     return dict(filter_map)
-
